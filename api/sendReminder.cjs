@@ -3,17 +3,13 @@ const { Resend } = require("resend");
 module.exports = async (req, res) => {
   try {
     if (req.method !== "POST") {
-      return res
-        .status(405)
-        .json({ success: false, message: "Method Not Allowed" });
+      return res.status(405).json({ success: false, message: "Method Not Allowed" });
     }
 
-    // Parse JSON body manually
+    // Manually parse JSON body for Vercel
     let body = "";
     await new Promise((resolve) => {
-      req.on("data", (chunk) => {
-        body += chunk;
-      });
+      req.on("data", (chunk) => { body += chunk; });
       req.on("end", resolve);
     });
 
@@ -26,11 +22,8 @@ module.exports = async (req, res) => {
 
     const { email, name, bookingDate, journeyDate, daysUntil } = parsed;
 
-    // Check API Key
     if (!process.env.RESEND_API_KEY) {
-      return res
-        .status(500)
-        .json({ success: false, message: "Missing RESEND_API_KEY" });
+      return res.status(500).json({ success: false, message: "Missing RESEND_API_KEY" });
     }
 
     const resend = new Resend(process.env.RESEND_API_KEY);
@@ -42,7 +35,7 @@ module.exports = async (req, res) => {
       text: `
 Hello ${name},
 
-Your IRCTC booking reminder is set!
+Your IRCTC booking reminder is set.
 
 Booking Date: ${bookingDate}
 Journey Date: ${journeyDate}
