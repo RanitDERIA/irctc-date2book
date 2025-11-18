@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Mail, CheckCircle, AlertCircle, Info } from 'lucide-react';
-import emailjs from '@emailjs/browser';
 
 const EmailReminder = ({ bookingDate, journeyDate }) => {
   const [email, setEmail] = useState('');
@@ -8,17 +7,9 @@ const EmailReminder = ({ bookingDate, journeyDate }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // EmailJS Configuration - reads from environment variables
-  const EMAILJS_CONFIG = {
-    serviceId: import.meta.env.VITE_EMAILJS_SERVICE_ID,
-    templateId: import.meta.env.VITE_EMAILJS_TEMPLATE_ID,
-    publicKey: import.meta.env.VITE_EMAILJS_PUBLIC_KEY,
-  };
-
-  const isConfigured =
-    EMAILJS_CONFIG.serviceId &&
-    EMAILJS_CONFIG.templateId &&
-    EMAILJS_CONFIG.publicKey;
+  // Web3Forms API key from env
+  const WEB3FORMS_API_KEY = import.meta.env.VITE_WEB3FORMS_API_KEY;
+  const isConfigured = !!WEB3FORMS_API_KEY;
 
   // Format date helper
   const formatDate = (date) =>
@@ -39,13 +30,58 @@ const EmailReminder = ({ bookingDate, journeyDate }) => {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
+  // Sends to Web3Forms
+  const sendEmailWeb3Forms = async (params) => {
+    const formData = new FormData();
+    formData.append('access_key', WEB3FORMS_API_KEY);
+    // Standard fields
+    formData.append('email', params.user_email);
+    formData.append('name', params.user_name);
+    formData.append('subject', `IRCTC Reminder — ${params.booking_date_short}`);
+    // Put the main body in message (you can also use custom keys)
+    formData.append(
+      'message',
+      `Hi ${params.user_name},
+
+Your IRCTC booking reminder has been scheduled.
+
+Booking Date: ${params.booking_date}
+Journey Date: ${params.journey_date}
+Booking Time: ${params.booking_time}
+Days until booking opens: ${params.days_until}
+
+IRCTC Link: ${params.irctc_url}
+App: ${params.app_name}
+
+Thanks,
+${params.app_name}`
+    );
+
+    // Additional custom fields (Web3Forms will forward these too)
+    formData.append('booking_date_short', params.booking_date_short);
+    formData.append('journey_date_short', params.journey_date_short);
+    formData.append('booking_time', params.booking_time);
+    formData.append('days_until', String(params.days_until));
+    formData.append('irctc_url', params.irctc_url);
+    formData.append('app_name', params.app_name);
+
+    const resp = await fetch('https://api.web3forms.com/submit', {
+      method: 'POST',
+      body: formData,
+    });
+
+    // parse JSON safely
+    const json = await resp.json().catch(() => null);
+    return { ok: resp.ok, status: resp.status, json };
+  };
+
   const handleEmailReminder = async () => {
     setError('');
     setEmailSent(false);
 
     if (!isConfigured) {
       setError(
-        'Email service is not configured. Please check your environment variables.'
+        'Email service is not configured. Please set VITE_WEB3FORMS_API_KEY in your .env'
       );
       return;
     }
@@ -66,9 +102,7 @@ const EmailReminder = ({ bookingDate, journeyDate }) => {
     setIsLoading(true);
 
     try {
-      // EmailJS expects "reply_to" or "user_email" instead of "to_email"
       const templateParams = {
-        reply_to: email,
         user_email: email,
         user_name: email.split('@')[0],
         booking_date: formatDate(bookingDate),
@@ -81,35 +115,31 @@ const EmailReminder = ({ bookingDate, journeyDate }) => {
         app_name: 'IRCTC Date2Book',
       };
 
-      console.log('Sending email with params:', templateParams);
+      console.log('Sending via Web3Forms:', templateParams);
 
-      const response = await emailjs.send(
-        EMAILJS_CONFIG.serviceId,
-        EMAILJS_CONFIG.templateId,
-        templateParams,
-        EMAILJS_CONFIG.publicKey
-      );
+      const { ok, status, json } = await sendEmailWeb3Forms(templateParams);
 
-      console.log('Email sent successfully:', response);
-      setEmailSent(true);
-
-      setTimeout(() => {
-        setEmailSent(false);
-        setEmail('');
-      }, 5000);
-    } catch (err) {
-      console.error('Email sending failed:', err);
-      if (err.text) {
-        setError(`Failed to send email: ${err.text}`);
-      } else if (err.status === 400) {
-        setError('Invalid email configuration. Please check your EmailJS settings.');
-      } else if (err.status === 401) {
-        setError('EmailJS authentication failed. Please verify your public key.');
-      } else if (err.status === 422) {
-        setError('EmailJS rejected the request. Check template parameters.');
+      if (ok && json && json.success) {
+        console.log('Web3Forms success response:', json);
+        setEmailSent(true);
+        setTimeout(() => {
+          setEmailSent(false);
+          setEmail('');
+        }, 5000);
       } else {
-        setError('Failed to send email. Please try again later.');
+        console.error('Web3Forms error:', status, json);
+        // Helpful error messages
+        if (status === 401) {
+          setError('Unauthorized: check your Web3Forms API key.');
+        } else if (json && json.error) {
+          setError(`Failed to send email: ${json.error}`);
+        } else {
+          setError('Failed to send email. Please try again later.');
+        }
       }
+    } catch (err) {
+      console.error('Sending failed:', err);
+      setError('An unexpected error occurred while sending the email.');
     } finally {
       setIsLoading(false);
     }
@@ -140,10 +170,7 @@ const EmailReminder = ({ bookingDate, journeyDate }) => {
           <Info className="w-5 h-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
           <div className="text-yellow-700 dark:text-yellow-400 text-sm">
             <p className="font-medium mb-1">Email service not configured</p>
-            <p>
-              Please set up your EmailJS credentials in the .env file to enable
-              email reminders.
-            </p>
+            <p>Please set up your Web3Forms API key in the .env file.</p>
           </div>
         </div>
       )}
@@ -204,7 +231,7 @@ const EmailReminder = ({ bookingDate, journeyDate }) => {
           <li>Reminder will be sent 24 hours before booking opens</li>
           <li>Check your spam folder if you don't receive the email</li>
           <li>Free service - no registration required</li>
-          <li>Your email is not stored and used only for this reminder</li>
+          <li>We only use your email to send this reminder</li>
         </ul>
       </div>
     </div>
