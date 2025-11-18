@@ -49,7 +49,8 @@ const EmailReminder = ({ bookingDate, journeyDate }) => {
 
     try {
       // Use the BACKEND_URL constant for the fetch request
-      const response = await fetch(`${BACKEND_URL}/api/sendReminder`, {
+      // Updated endpoint to match working Postman URL: /api/send-reminder
+      const response = await fetch(`${BACKEND_URL}/api/send-reminder`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
