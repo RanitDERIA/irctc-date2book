@@ -8,17 +8,34 @@ module.exports = async (req, res) => {
         .json({ success: false, message: "Method Not Allowed" });
     }
 
+    // Parse JSON body manually
+    let body = "";
+    await new Promise((resolve) => {
+      req.on("data", (chunk) => {
+        body += chunk;
+      });
+      req.on("end", resolve);
+    });
+
+    let parsed;
+    try {
+      parsed = JSON.parse(body);
+    } catch (err) {
+      return res.status(400).json({ success: false, message: "Invalid JSON" });
+    }
+
+    const { email, name, bookingDate, journeyDate, daysUntil } = parsed;
+
+    // Check API Key
     if (!process.env.RESEND_API_KEY) {
       return res
         .status(500)
         .json({ success: false, message: "Missing RESEND_API_KEY" });
     }
 
-    const { email, name, bookingDate, journeyDate, daysUntil } = req.body;
-
     const resend = new Resend(process.env.RESEND_API_KEY);
 
-    await resend.emails.send({
+    const result = await resend.emails.send({
       from: "IRCTC Date2Book <reminder@yourdomain.com>",
       to: email,
       subject: "Your IRCTC Booking Reminder",
@@ -35,7 +52,7 @@ Thanks for using IRCTC Date2Book 🚆
       `,
     });
 
-    return res.status(200).json({ success: true });
+    return res.status(200).json({ success: true, result });
   } catch (error) {
     console.error("API Error:", error);
     return res.status(500).json({
