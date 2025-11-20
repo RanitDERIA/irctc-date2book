@@ -183,13 +183,10 @@ irctc-date2book/
 
 ### Sample Calculation: <a name="sample-calculation"></a>
 
-  **Scenario:** You want to travel on December 25th.
-
-  **Input (Journey Date):** 25th December
-
-  **Algorithm:** 25 Dec − 60 days
-
-  **Result:** 26th October @ 8:00 AM IST
+  **Scenario:** You want to travel on December 25th. <br>
+  **Input (Journey Date):** 25th December <br>
+  **Algorithm:** 25 Dec − 60 days <br>
+  **Result:** 26th October @ 8:00 AM IST <br>
 
 ### License: <a name="license"></a>
 
